@@ -2,6 +2,9 @@
 
 ComfyUI Visual Select 是一款旨在提升模型选择体验的 ComfyUI 前端扩展插件。它通过拦截原生的模型下拉列表，提供了一个直观、支持预览图和详细信息的模型可视化浏览器，帮助用户更高效地管理和选择模型。
 
+## 🎨UI界面预览
+
+https://github.com/VodooWaWa/Comfyui-Visual-Select/blob/main/Example%20image/VisualSelect.png
 ## ✨ 主要特性
 
 *   **🎨 可视化模型浏览**：用直观的卡片网格代替了繁琐的文字下拉菜单，支持显示模型封面图。
