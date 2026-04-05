@@ -6,9 +6,8 @@ Comfyui-Visual-Select EN：[Comfyui-Visual-Select README (EN)](https://github.co
 
 封面图和元数据信息显示需要模型文件夹存在模型名同名的jpeg图片作为封面和info元数据信息文件，你可以手动选择一张封面图改名模型文件名同名即可显示。但是info元数据信息文件需要用civitai api做返回值JSON解析。
 
-**搭配我的另一个仓库里的工具，实现完美显示效果，用来批量下载生成封面和元数据信息（免费使用）</br>**
-**【详情】按钮必须搭配该工具的管理模型生成html才能实现（需要捐赠版）默认无html文件情况下不显示详情，不影响插件使用。**
-https://github.com/VodooWaWa/Civitai-Download-Tool
+**搭配我的另一个仓库[Civitai-Download_Tool](https://github.com/VodooWaWa/Civitai-Download-Tool)里的工具，用于批量下载模型和自动生成封面与元数据信息（免费使用）可实现完美显示效果。</br>**
+**【详情】按钮必须搭配该工具（需要捐赠版）的管理模型生成html才能实现，默认无html文件情况下隐藏该按钮，完全不影响插件使用。**
 
 插件使用视频教程B站链接：https://www.bilibili.com/video/BV1kfDTBXEad/
 
@@ -33,7 +32,7 @@ https://github.com/VodooWaWa/Civitai-Download-Tool
     *   配置修改后自动保存，即使在无痕模式下也不会丢失设置。
 *   **🧩 独立模型浏览器节点**：提供了一个专门的 `🎨 Visual Select Model Browser` 节点，用于独立浏览和选择任何类型的模型。
 
-## 🆕 更新说明
+## 🆕 v1.1.0 更新说明
 
 *   **移除 backdrop-filter**：主弹窗/详情弹窗/备注弹窗遮罩层不再启用背景毛玻璃效果，以降低渲染压力、提升流畅度。
 *   **新增备注功能**：在模型卡片操作区新增“备注”入口，支持新增/删除/编辑/复制/拖拽排序，并自动保存到模型同目录的 `*.notes.json`。
