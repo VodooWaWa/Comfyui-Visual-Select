@@ -6,9 +6,8 @@ Comfyui-Visual-Select EN：[Comfyui-Visual-Select README (EN)](https://github.co
 
 封面图和元数据信息显示需要模型文件夹存在模型名同名的jpeg图片作为封面和info元数据信息文件，你可以手动选择一张封面图改名模型文件名同名即可显示。但是info元数据信息文件需要用civitai api做返回值JSON解析。
 
-**也可以直接搭配我的另一个仓库里的工具，实现完美显示效果，用下载来生成封面和元数据信息和管理模型。**
-
-**详情按钮必须搭配该工具的管理模型生成html才能实现。（需要捐赠版）**
+**搭配我的另一个仓库里的工具，实现完美显示效果，用来批量下载生成封面和元数据信息（免费使用）</br>**
+**【详情】按钮必须搭配该工具的管理模型生成html才能实现（需要捐赠版）默认无html文件情况下不显示详情，不影响插件使用。**
 https://github.com/VodooWaWa/Civitai-Download-Tool
 
 插件使用视频教程B站链接：https://www.bilibili.com/video/BV1kfDTBXEad/
