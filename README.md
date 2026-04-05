@@ -1,4 +1,4 @@
-# ComfyUI Visual Select (视图选择器) v1.0
+# ComfyUI Visual Select (视图选择器) v1.1.0
 
 ComfyUI Visual Select 是一款旨在提升模型选择体验的 ComfyUI 前端扩展插件。它通过拦截原生的模型下拉列表，提供了一个直观、支持预览图和详细信息的模型可视化浏览器，帮助用户更高效地管理和选择模型。
 
@@ -13,7 +13,7 @@ https://github.com/VodooWaWa/Civitai-Download-Tool
 
 ## 🎨UI界面预览
 
-![image](https://github.com/VodooWaWa/Comfyui-Visual-Select/blob/main/Example%20image/VisualSelect.png)
+![image](Example%20image/VisualSelect.png)
 ## ✨ 主要特性
 
 *   **🎨 可视化模型浏览**：用直观的卡片网格代替了繁琐的文字下拉菜单，支持显示模型封面图。
@@ -24,12 +24,18 @@ https://github.com/VodooWaWa/Civitai-Download-Tool
     *   支持按模型精度 (FP Format) 过滤。
     *   支持按内容安全级别 (SFW/NSFW) 过滤。
 *   **📄 HTML 详情预览**：支持直接在弹窗中渲染模型同名配套的 HTML 详细信息页面，并完美修复了本地图片资源的加载问题。
+*   **📝 备注功能**：支持为每个模型创建多条备注（标题/内容），支持回车换行、一键复制、拖拽排序，编辑后自动保存，并以 JSON 持久化到模型同目录。
 *   **🌐 国际化支持**：内置中英双语界面，可在设置中无缝切换。
 *   **⚙️ 高度可定制 (持久化配置)**：
     *   支持自定义拦截关键字。
     *   支持自定义排除关键字（默认放过内置独立模型浏览器的`model_type`）。
     *   配置修改后自动保存，即使在无痕模式下也不会丢失设置。
 *   **🧩 独立模型浏览器节点**：提供了一个专门的 `🎨 Visual Select Model Browser` 节点，用于独立浏览和选择任何类型的模型。
+
+## 🆕 更新说明
+
+*   **移除 backdrop-filter**：主弹窗/详情弹窗/备注弹窗遮罩层不再启用背景毛玻璃效果，以降低渲染压力、提升流畅度。
+*   **新增备注功能**：在模型卡片操作区新增“备注”入口，支持新增/删除/编辑/复制/拖拽排序，并自动保存到模型同目录的 `*.notes.json`。
 
 ## 📦 安装说明
 
@@ -51,14 +57,21 @@ https://github.com/VodooWaWa/Civitai-Download-Tool
 3. 然后点击 `selected_model`，即可弹出对应的可视化界面进行挑选。
 4. 将该节点的输出连接到任何接受模型路径字符串的节点即可使用。
 
+### 📝 备注功能
+在模型卡片上点击“备注”按钮即可打开备注弹窗。支持多条条目、标题与内容编辑（支持回车换行）、一键复制内容、拖拽排序，并在编辑框失焦后自动保存到模型同目录的 `*.notes.json` 文件中。
+
+![note](Example%20image/note.png)
+
 ## ⚙️ 设置选项
 
 点击 ComfyUI 界面右上角的齿轮图标进入**设置 (Settings)**，在列表中可以找到以下配置项：
 
-*   **🎨 Visual Select - 1. 开启可视化选择器**: 插件总开关，开启后生效。
-*   **🎨 Visual Select - 2. 拦截关键字配置**: 只有当节点的属性名包含这些关键字时（如 ckpt, lora 等），才会弹出悬浮按钮。使用英文逗号分隔。
-*   **🎨 Visual Select - 3. 排除关键字配置**: 当节点属性名包含这些关键字时，强制**不拦截**（直接显示原生下拉框）。默认包含 `model_type`。
-*   **🎨 Visual Select - 4. 语言 (Language)**: 切换可视化界面的语言（中文 / English）。
+以下选项位于设置分组 `🎨Visual Select` 下：
+
+*   **开启视图选择器**: 插件总开关，开启后生效。
+*   **监听关键字（逗号分隔）**: 只有当节点的属性名包含这些关键字时（如 ckpt, lora 等），才会弹出悬浮按钮。使用英文逗号分隔。
+*   **排除关键字（逗号分隔）**: 当节点属性名包含这些关键字时，强制**不拦截**（直接显示原生下拉框）。默认包含 `model_type`。
+*   **语言 (Language)**: 切换可视化界面的语言（中文 / English）。
 
 > **提示**：所有的设置都会自动保存在插件目录下的 `config.json` 文件中，支持持久化。
 

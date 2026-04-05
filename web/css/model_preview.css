@@ -19,7 +19,6 @@
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(2px);
 }
 
 .vs-modal {
@@ -313,6 +312,7 @@
     word-break: break-all;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     line-height: 1.2;
@@ -372,6 +372,18 @@
     min-height: 72px; /* Force consistent height for actions area */
 }
 
+.vs-card-actions-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.vs-card-actions-row .vs-note-btn,
+.vs-card-actions-row .vs-details-btn {
+    flex: 1;
+    width: auto;
+}
+
 .vs-select-btn {
     width: 100%;
     padding: 6px 12px;
@@ -409,6 +421,27 @@
     background: #218838;
 }
 
+.vs-note-btn {
+    width: 100%;
+    padding: 6px 12px;
+    background: #5a6268;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13.3px;
+    transition: background 0.2s, box-shadow 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
+.vs-note-btn:hover {
+    background: #495057;
+}
+
 .vs-details-dialog {
     position: fixed;
     top: 0;
@@ -426,4 +459,228 @@
     height: 100%;
     border: none;
     background: #fff; /* HTML details might expect a light background by default */
+}
+
+.vs-notes-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.vs-notes-dialog .vs-overlay {
+    backdrop-filter: none;
+}
+
+.vs-notes-toolbar {
+    display: flex;
+    gap: 10px;
+    padding: 10px 20px;
+    border-bottom: 1px solid #333;
+    background: #1a1a1a;
+}
+
+.vs-notes-toolbar .vs-note-btn,
+.vs-notes-toolbar .vs-details-btn {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 8px 18px;
+    min-width: 96px;
+}
+
+.vs-notes-toolbar .vs-note-btn:disabled,
+.vs-notes-toolbar .vs-details-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.vs-notes-toolbar .vs-notes-del {
+    background: #c82333;
+}
+
+.vs-notes-toolbar .vs-notes-del:hover {
+    background: #b21f2d;
+}
+
+.vs-notes-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    background: #222;
+    flex-direction: column;
+}
+
+.vs-notes-top {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.vs-notes-list {
+    width: 280px;
+    border-right: 1px solid #333;
+    background: #1e1e1e;
+    overflow-y: auto;
+    padding: 10px 0;
+}
+
+.vs-notes-empty {
+    padding: 12px 16px;
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.vs-notes-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    color: #ccc;
+    border-left: 3px solid transparent;
+    transition: background 0.2s, color 0.2s;
+    word-break: break-word;
+    user-select: none;
+}
+
+.vs-notes-item[draggable="true"] {
+    cursor: grab;
+}
+
+.vs-notes-item.dragging {
+    opacity: 0.6;
+    cursor: grabbing;
+}
+
+.vs-notes-item.drag-over {
+    background: #2a2a2a;
+}
+
+.vs-notes-item:hover {
+    background: #333;
+    color: #fff;
+}
+
+.vs-notes-item.active {
+    background: #444;
+    color: #fff;
+    font-weight: bold;
+    border-left-color: #007bff;
+}
+
+.vs-notes-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    min-height: 0;
+}
+
+.vs-note-title-input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 4px;
+    border: 1px solid #444;
+    background: #111;
+    color: #eee;
+    font-size: 0.95rem;
+}
+
+.vs-note-title-input:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.vs-note-content-wrap {
+    position: relative;
+    flex: 1;
+    display: flex;
+}
+
+.vs-note-content-input {
+    width: 100%;
+    resize: none;
+    padding: 10px 44px 10px 12px;
+    border-radius: 4px;
+    border: 1px solid #444;
+    background: #111;
+    color: #eee;
+    font-size: 0.9rem;
+    line-height: 1.35;
+    flex: 1;
+}
+
+.vs-note-content-input:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.vs-note-copy-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #1a1a1a;
+    color: #ddd;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vs-note-copy-btn:hover {
+    background: #2a2a2a;
+    color: #fff;
+}
+
+.vs-notes-preview {
+    height: 50%;
+    border-top: 1px solid #333;
+    background: #1a1a1a;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.vs-notes-preview-empty {
+    padding: 12px 6px;
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.vs-notes-preview-item {
+    border: 1px solid #2a2a2a;
+    background: #111;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.vs-notes-preview-item:hover {
+    border-color: #3a3a3a;
+    background: #121212;
+}
+
+.vs-notes-preview-item.active {
+    border-color: #007bff;
+}
+
+.vs-notes-preview-title {
+    font-weight: 700;
+    color: #eee;
+    margin-bottom: 6px;
+    word-break: break-word;
+}
+
+.vs-notes-preview-content {
+    color: #bbb;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.35;
 }

@@ -172,6 +172,10 @@ def _resolve_model_full_path(model_type: str, model_name: str):
 
     return None
 
+def _notes_file_path(model_full_path: str) -> str:
+    base_path = os.path.splitext(model_full_path)[0]
+    return base_path + ".notes.json"
+
 def load_config():
     if os.path.exists(CONFIG_PATH):
         try:
@@ -360,6 +364,75 @@ if hasattr(server.PromptServer, "instance"):
                 }
                 
         return web.json_response(result)
+
+    @server.PromptServer.instance.routes.get("/visual_select/notes")
+    async def get_model_notes(request):
+        model_name = request.query.get("name", "")
+        model_type = request.query.get("type", "")
+        if not model_name:
+            return web.json_response({"items": []})
+
+        full_path = _resolve_model_full_path(model_type, model_name)
+        if not full_path:
+            return web.Response(status=404, text="Model not found")
+
+        notes_path = _notes_file_path(full_path)
+        if not os.path.exists(notes_path):
+            return web.json_response({"items": []})
+
+        try:
+            with open(notes_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict) and isinstance(data.get("items"), list):
+                return web.json_response({"items": data.get("items", [])})
+        except Exception:
+            pass
+
+        return web.json_response({"items": []})
+
+    @server.PromptServer.instance.routes.post("/visual_select/notes")
+    async def save_model_notes(request):
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"status": "error", "message": "Invalid JSON"}, status=400)
+
+        model_name = data.get("name", "")
+        model_type = data.get("type", "")
+        items = data.get("items", [])
+
+        if not model_name:
+            return web.json_response({"status": "error", "message": "Model name required"}, status=400)
+
+        full_path = _resolve_model_full_path(model_type, model_name)
+        if not full_path:
+            return web.json_response({"status": "error", "message": "Model not found"}, status=404)
+
+        if not isinstance(items, list):
+            return web.json_response({"status": "error", "message": "Items must be a list"}, status=400)
+
+        normalized_items = []
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            item_id = str(it.get("id", "")).strip()
+            if not item_id:
+                item_id = str(int(time.time() * 1000))
+            title = it.get("title", "")
+            content = it.get("content", "")
+            if not isinstance(title, str):
+                title = str(title)
+            if not isinstance(content, str):
+                content = str(content)
+            normalized_items.append({"id": item_id, "title": title, "content": content})
+
+        notes_path = _notes_file_path(full_path)
+        try:
+            with open(notes_path, "w", encoding="utf-8") as f:
+                json.dump({"version": 1, "items": normalized_items}, f, ensure_ascii=False, indent=2)
+            return web.json_response({"status": "success"})
+        except Exception as e:
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
                 
     @server.PromptServer.instance.routes.get("/visual_select/get_models")
     async def get_models_by_type(request):

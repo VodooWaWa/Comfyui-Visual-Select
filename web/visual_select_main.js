@@ -19,7 +19,7 @@ window._vs_config = {
     intercept_types: "ckpt,model,lora,vae,unet,controlnet,checkpoint",
     intercept_excludes: "model_type",
     language: "zh-CN",
-    nsfw_blur: true
+    nsfw_blur: true,
 };
 
 // I18n strings
@@ -38,6 +38,12 @@ const I18N = {
         noModels: "No models match the criteria",
         noImage: "No Image",
         details: "Details",
+        note: "Notes",
+        notesTitle: "Notes",
+        add: "Add",
+        del: "Delete",
+        copy: "Copy",
+        emptyNotes: "No notes yet",
         select: "Select",
         all: "All",
         withInfo: "With Info",
@@ -60,6 +66,12 @@ const I18N = {
         noModels: "没有符合条件的模型",
         noImage: "无图片",
         details: "详情",
+        note: "备注",
+        notesTitle: "备注",
+        add: "新增",
+        del: "删除",
+        copy: "复制",
+        emptyNotes: "暂无备注",
         select: "选择",
         all: "全部",
         withInfo: "有信息",
@@ -165,6 +177,307 @@ function showDetailsDialog(name) {
     
     dialog.querySelector(".vs-close").onclick = () => document.body.removeChild(dialog);
     dialog.querySelector(".vs-overlay").onclick = () => document.body.removeChild(dialog);
+}
+
+function _escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
+
+function _cssEscape(value) {
+    if (window.CSS && typeof window.CSS.escape === "function") {
+        return window.CSS.escape(value);
+    }
+    return String(value).replaceAll('"', '\\"');
+}
+
+function _copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+    }
+    const ta = document.createElement("textarea");
+    ta.value = text || "";
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        document.execCommand("copy");
+    } finally {
+        document.body.removeChild(ta);
+    }
+    return Promise.resolve();
+}
+
+async function showNotesDialog(modelPath, displayName) {
+    const encodedName = encodeURIComponent(modelPath);
+    const type = window._vs_current_model_type || "";
+    const encodedType = encodeURIComponent(type);
+    const url = `/visual_select/notes?name=${encodedName}&type=${encodedType}`;
+
+    const dialog = document.createElement("div");
+    dialog.className = "vs-notes-dialog";
+    dialog.innerHTML = `
+        <div class="vs-overlay"></div>
+        <div class="vs-modal vs-modal-large">
+            <div class="vs-header">
+                <h2>📝 ${t('notesTitle')}: ${_escapeHtml(displayName || modelPath.split('/').pop())}</h2>
+                <div class="vs-close">&times;</div>
+            </div>
+            <div class="vs-notes-toolbar">
+                <button class="vs-details-btn vs-notes-add">${t('add')}</button>
+                <button class="vs-note-btn vs-notes-del" disabled>${t('del')}</button>
+            </div>
+            <div class="vs-notes-body">
+                <div class="vs-notes-top">
+                    <div class="vs-notes-list"></div>
+                    <div class="vs-notes-editor">
+                        <input class="vs-note-title-input" type="text" />
+                        <div class="vs-note-content-wrap">
+                            <textarea class="vs-note-content-input"></textarea>
+                            <button class="vs-note-copy-btn" title="${t('copy')}" type="button" aria-label="${t('copy')}">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm4 4H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h12v16z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="vs-notes-preview"></div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(dialog);
+
+    const close = () => document.body.removeChild(dialog);
+    dialog.querySelector(".vs-close").onclick = close;
+    dialog.querySelector(".vs-overlay").onclick = close;
+
+    const listEl = dialog.querySelector(".vs-notes-list");
+    const addBtn = dialog.querySelector(".vs-notes-add");
+    const delBtn = dialog.querySelector(".vs-notes-del");
+    const titleInput = dialog.querySelector(".vs-note-title-input");
+    const contentInput = dialog.querySelector(".vs-note-content-input");
+    const copyBtn = dialog.querySelector(".vs-note-copy-btn");
+    const previewEl = dialog.querySelector(".vs-notes-preview");
+
+    const state = {
+        items: [],
+        selectedId: null,
+        saving: false,
+        dragId: null
+    };
+
+    function renderList() {
+        listEl.innerHTML = "";
+        if (!state.items.length) {
+            const empty = document.createElement("div");
+            empty.className = "vs-notes-empty";
+            empty.innerText = t("emptyNotes");
+            listEl.appendChild(empty);
+        } else {
+            for (const item of state.items) {
+                const row = document.createElement("div");
+                row.className = "vs-notes-item" + (item.id === state.selectedId ? " active" : "");
+                row.setAttribute("data-id", item.id);
+                row.setAttribute("draggable", "true");
+                row.innerText = item.title || "";
+                row.onclick = () => {
+                    state.selectedId = item.id;
+                    renderAll();
+                };
+                row.ondragstart = (e) => {
+                    state.dragId = item.id;
+                    try {
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", item.id);
+                    } catch (err) {}
+                    row.classList.add("dragging");
+                };
+                row.ondragend = () => {
+                    state.dragId = null;
+                    listEl.querySelectorAll(".vs-notes-item.dragging").forEach(el => el.classList.remove("dragging"));
+                    listEl.querySelectorAll(".vs-notes-item.drag-over").forEach(el => el.classList.remove("drag-over"));
+                };
+                row.ondragover = (e) => {
+                    e.preventDefault();
+                    row.classList.add("drag-over");
+                    try { e.dataTransfer.dropEffect = "move"; } catch (err) {}
+                };
+                row.ondragleave = () => {
+                    row.classList.remove("drag-over");
+                };
+                row.ondrop = async (e) => {
+                    e.preventDefault();
+                    row.classList.remove("drag-over");
+                    const fromId = state.dragId || (() => {
+                        try { return e.dataTransfer.getData("text/plain"); } catch (err) { return ""; }
+                    })();
+                    const toId = item.id;
+                    if (!fromId || fromId === toId) return;
+                    const fromIndex = state.items.findIndex(x => x.id === fromId);
+                    const toIndex = state.items.findIndex(x => x.id === toId);
+                    if (fromIndex === -1 || toIndex === -1) return;
+
+                    const next = state.items.slice();
+                    const [moved] = next.splice(fromIndex, 1);
+                    const insertIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+                    next.splice(insertIndex, 0, moved);
+                    state.items = next;
+                    renderAll();
+                    await saveNotes();
+                };
+                listEl.appendChild(row);
+            }
+        }
+        delBtn.disabled = !state.selectedId;
+    }
+
+    function renderPreview() {
+        previewEl.innerHTML = "";
+        if (!state.items.length) {
+            const empty = document.createElement("div");
+            empty.className = "vs-notes-preview-empty";
+            empty.innerText = t("emptyNotes");
+            previewEl.appendChild(empty);
+            return;
+        }
+
+        for (const item of state.items) {
+            const wrap = document.createElement("div");
+            wrap.className = "vs-notes-preview-item" + (item.id === state.selectedId ? " active" : "");
+            wrap.setAttribute("data-id", item.id);
+            wrap.onclick = () => {
+                state.selectedId = item.id;
+                renderAll();
+            };
+
+            const title = document.createElement("div");
+            title.className = "vs-notes-preview-title";
+            title.innerText = item.title || "";
+
+            const content = document.createElement("div");
+            content.className = "vs-notes-preview-content";
+            content.innerText = item.content || "";
+
+            wrap.appendChild(title);
+            wrap.appendChild(content);
+            previewEl.appendChild(wrap);
+        }
+    }
+
+    function selectedItem() {
+        if (!state.selectedId) return null;
+        return state.items.find(i => i.id === state.selectedId) || null;
+    }
+
+    function renderEditor() {
+        const item = selectedItem();
+        if (!item) {
+            titleInput.value = "";
+            contentInput.value = "";
+            titleInput.disabled = true;
+            contentInput.disabled = true;
+            copyBtn.disabled = true;
+            return;
+        }
+        titleInput.disabled = false;
+        contentInput.disabled = false;
+        copyBtn.disabled = false;
+        titleInput.value = item.title || "";
+        contentInput.value = item.content || "";
+    }
+
+    function renderAll() {
+        renderList();
+        renderEditor();
+        renderPreview();
+    }
+
+    async function saveNotes() {
+        if (state.saving) return;
+        state.saving = true;
+        try {
+            await fetch("/visual_select/notes", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    name: modelPath,
+                    type,
+                    items: state.items
+                })
+            });
+        } finally {
+            state.saving = false;
+        }
+    }
+
+    addBtn.onclick = async () => {
+        const id = String(Date.now()) + "_" + Math.random().toString(16).slice(2);
+        const newItem = {id, title: t("note"), content: ""};
+        state.items = [newItem, ...state.items];
+        state.selectedId = id;
+        renderAll();
+        titleInput.focus();
+        titleInput.select();
+        await saveNotes();
+    };
+
+    delBtn.onclick = async () => {
+        if (!state.selectedId) return;
+        state.items = state.items.filter(i => i.id !== state.selectedId);
+        state.selectedId = state.items.length ? state.items[0].id : null;
+        renderAll();
+        await saveNotes();
+    };
+
+    titleInput.addEventListener("input", () => {
+        const item = selectedItem();
+        if (!item) return;
+        item.title = titleInput.value;
+        const row = listEl.querySelector(`.vs-notes-item[data-id="${_cssEscape(item.id)}"]`);
+        if (row) row.innerText = item.title || "";
+        const p = previewEl.querySelector(`.vs-notes-preview-item[data-id="${_cssEscape(item.id)}"] .vs-notes-preview-title`);
+        if (p) p.innerText = item.title || "";
+    });
+
+    contentInput.addEventListener("input", () => {
+        const item = selectedItem();
+        if (!item) return;
+        item.content = contentInput.value;
+        const p = previewEl.querySelector(`.vs-notes-preview-item[data-id="${_cssEscape(item.id)}"] .vs-notes-preview-content`);
+        if (p) p.innerText = item.content || "";
+    });
+
+    titleInput.addEventListener("blur", saveNotes);
+    contentInput.addEventListener("blur", saveNotes);
+
+    copyBtn.onclick = async () => {
+        const item = selectedItem();
+        if (!item) return;
+        await _copyToClipboard(item.content || "");
+    };
+
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data && Array.isArray(data.items)) {
+            state.items = data.items;
+        } else {
+            state.items = [];
+        }
+        state.selectedId = state.items.length ? state.items[0].id : null;
+    } catch (e) {
+        state.items = [];
+        state.selectedId = null;
+    }
+
+    renderAll();
 }
 
 function buildUI(dialog, widget, node, models, info) {
@@ -319,10 +632,9 @@ function buildUI(dialog, widget, node, models, info) {
                 imgHtml = `<img src="/visual_select/preview?name=${encodedName}&format=image&type=${window._vs_current_model_type || ''}" alt="${m.name}" loading="lazy" />`;
             }
             
-            let detailsBtn = '<div class="vs-details-placeholder" style="height: 28px; width: 100%;"></div>';
+            let detailsBtn = "";
             if (m.info.has_html) {
                 const encodedName = encodeURIComponent(m.fullPath);
-                // Changed from <a> tag to <button> to ensure consistent event handling
                 detailsBtn = `<button class="vs-details-btn" data-url="/visual_select/preview?name=${encodedName}&format=html&type=${window._vs_current_model_type || ''}">${t('details')}</button>`;
             }
             
@@ -345,6 +657,13 @@ function buildUI(dialog, widget, node, models, info) {
             }
             badgesHtml += '</div>';
             
+            const actionRowHtml = `
+                <div class="vs-card-actions-row">
+                    <button class="vs-note-btn" data-name="${_escapeHtml(m.fullPath)}" data-display="${_escapeHtml(displayName)}">${t('note')}</button>
+                    ${detailsBtn}
+                </div>
+            `;
+
             card.innerHTML = `
                 <div class="vs-card-img${(blurNsfw && m.info.is_nsfw) ? ' vs-nsfw-blur' : ''}">${imgHtml}</div>
                 <div class="vs-card-info-wrapper">
@@ -356,7 +675,7 @@ function buildUI(dialog, widget, node, models, info) {
                     <button class="vs-select-btn" data-name="${m.fullPath}">
                         ${t('select')}
                     </button>
-                    ${detailsBtn}
+                    ${actionRowHtml}
                 </div>
             `;
             
@@ -384,6 +703,17 @@ function buildUI(dialog, widget, node, models, info) {
                 const url = e.target.getAttribute("data-url");
                 if (url) {
                     window.open(url, "_blank");
+                }
+            };
+        });
+
+        gridEl.querySelectorAll(".vs-note-btn").forEach(btn => {
+            btn.onclick = async (e) => {
+                e.stopPropagation();
+                const name = btn.getAttribute("data-name");
+                const display = btn.getAttribute("data-display");
+                if (name) {
+                    await showNotesDialog(name, display);
                 }
             };
         });
@@ -764,72 +1094,79 @@ async function showAdvancedBrowser(widget, node, forceType) {
 
 app.registerExtension({
     name: "visual_select.model_preview",
+    settings: [
+        {
+            id: "VisualSelect.Settings.Enabled",
+            name: "开启视图选择器",
+            category: ["🎨Visual Select", "基础", "总开关"],
+            type: "boolean",
+            defaultValue: true,
+            tooltip: "关闭后将不拦截下拉框并禁用视图选择器弹窗",
+            onChange: (val) => {
+                window._vs_config.enabled = val;
+                fetch("/visual_select/config", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({enabled: val})
+                }).catch(e => console.error(e));
+            }
+        },
+        {
+            id: "VisualSelect.Settings.InterceptTypes",
+            name: "监听关键字（逗号分隔）",
+            category: ["🎨Visual Select", "基础", "监听关键字"],
+            type: "text",
+            defaultValue: "ckpt,model,lora,vae,unet,controlnet,checkpoint",
+            tooltip: "只有当节点属性名包含这些关键字时才弹出悬浮按钮",
+            onChange: (val) => {
+                window._vs_config.intercept_types = val;
+                fetch("/visual_select/config", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({intercept_types: val})
+                }).catch(e => console.error(e));
+            }
+        },
+        {
+            id: "VisualSelect.Settings.InterceptExcludes",
+            name: "排除关键字（逗号分隔）",
+            category: ["🎨Visual Select", "基础", "排除关键字"],
+            type: "text",
+            defaultValue: "model_type",
+            tooltip: "当节点属性名包含这些关键字时将强制使用原生下拉框（不拦截）",
+            onChange: (val) => {
+                window._vs_config.intercept_excludes = val;
+                fetch("/visual_select/config", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({intercept_excludes: val})
+                }).catch(e => console.error(e));
+            }
+        },
+        {
+            id: "VisualSelect.Settings.Language",
+            name: "语言 (Language)",
+            category: ["🎨Visual Select", "界面", "语言"],
+            type: "combo",
+            options: [
+                { text: "中文 (Chinese)", value: "zh-CN" },
+                { text: "English", value: "en-US" }
+            ],
+            defaultValue: "zh-CN",
+            tooltip: "切换插件界面语言",
+            onChange: (val) => {
+                window._vs_config.language = val;
+                fetch("/visual_select/config", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({language: val})
+                }).catch(e => console.error(e));
+            }
+        }
+    ],
     async setup() {
         console.log("🚀 [Visual_Select] Main Extension setup executed!");
-        
-        if (app.ui && app.ui.settings) {
-            app.ui.settings.addSetting({
-                id: "VisualSelect.Settings.Language",
-                name: "🎨 Visual Select - 4. 语言 (Language)",
-                type: "combo",
-                options: (value) => [
-                    { value: "zh-CN", text: "中文 (Chinese)", selected: value === "zh-CN" },
-                    { value: "en-US", text: "English", selected: value === "en-US" }
-                ],
-                defaultValue: "zh-CN",
-                onChange: (val) => {
-                    window._vs_config.language = val;
-                    fetch("/visual_select/config", {
-                        method: "POST",
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify({language: val})
-                    }).catch(e => console.error(e));
-                }
-            });
-            app.ui.settings.addSetting({
-                id: "VisualSelect.Settings.InterceptExcludes",
-                name: "🎨 Visual Select - 3. 排除关键字配置 (用逗号分隔)",
-                type: "text",
-                defaultValue: "model_type",
-                onChange: (val) => {
-                    window._vs_config.intercept_excludes = val;
-                    fetch("/visual_select/config", {
-                        method: "POST",
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify({intercept_excludes: val})
-                    }).catch(e => console.error(e));
-                }
-            });
-            app.ui.settings.addSetting({
-                id: "VisualSelect.Settings.InterceptTypes",
-                name: "🎨 Visual Select - 2. 拦截关键字配置 (用逗号分隔)",
-                type: "text",
-                defaultValue: "ckpt,model,lora,vae,unet,controlnet,checkpoint",
-                onChange: (val) => {
-                    window._vs_config.intercept_types = val;
-                    fetch("/visual_select/config", {
-                        method: "POST",
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify({intercept_types: val})
-                    }).catch(e => console.error(e));
-                }
-            });
-            app.ui.settings.addSetting({
-                id: "VisualSelect.Settings.Enabled",
-                name: "🎨 Visual Select - 1. 开启可视化选择器",
-                type: "boolean",
-                defaultValue: true,
-                onChange: (val) => {
-                    window._vs_config.enabled = val;
-                    fetch("/visual_select/config", {
-                        method: "POST",
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify({enabled: val})
-                    }).catch(e => console.error(e));
-                }
-            });
-        }
-        
+
         // Intercept LiteGraph ContextMenu for Combo Widgets (V1 Canvas)
         if (window.LiteGraph && window.LiteGraph.ContextMenu) {
             const origContextMenu = window.LiteGraph.ContextMenu;
