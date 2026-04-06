@@ -1,4 +1,4 @@
-# ComfyUI Visual Select v1.1.0
+# ComfyUI Visual Select v1.2.0
 ComfyUI Visual Select is a front-end extension for ComfyUI designed to enhance the model selection experience. By overriding the native model dropdown menus, it provides an intuitive visual model browser with preview images and detailed information, helping users manage and select models more efficiently.
 
 ComfyUI Visual Select 中文版：[README.md](https://github.com/VodooWaWa/Comfyui-Visual-Select/blob/main/README.md)
@@ -23,6 +23,7 @@ Video tutorial (Bilibili): https://www.bilibili.com/video/BV1kfDTBXEad/
     *   Filter by FP Format (model precision).
     *   Filter by content safety level (SFW/NSFW).
 *   **📄 HTML Detail Preview**: Renders HTML detail pages for matching model names directly in a popup, with full support for local image resource loading.
+*   **🔍 Enhanced Image Zoom Preview**: Optional setting to intercept ComfyUI’s zoom/magnifier preview and replace it with a fullscreen viewer that supports mouse wheel zoom and drag-to-pan.
 *   **📝 Notes**: Create multiple notes per model (title/content) with newline support, one-click copy, drag-and-drop reordering, and auto-save to a `*.notes.json` file alongside the model.
 *   **🌐 Internationalization**: Built-in Chinese and English interface, switchable seamlessly in settings.
 *   **⚙️ Highly Customizable (Persistent Configuration)**:
@@ -33,6 +34,7 @@ Video tutorial (Bilibili): https://www.bilibili.com/video/BV1kfDTBXEad/
 
 ## 🆕 Updates
 
+*   **Enhanced ComfyUI image zoom preview**: Added an optional switch to intercept the ComfyUI zoom/magnifier button and provide smoother wheel-zoom + drag-to-pan fullscreen viewing.
 *   **Removed backdrop-filter**: Overlay blur is no longer used in the main dialog, details dialog, and notes dialog to reduce rendering overhead and improve responsiveness.
 *   **Added Notes feature**: A new “Notes” entry is available in the model card actions, supporting add/delete/edit/copy/drag reorder with auto-save to `*.notes.json` next to the model.
 
@@ -59,6 +61,11 @@ Click the “Notes” button on a model card to open the notes dialog. It suppor
 
 ![note](/Example%20image/note.png)
 
+### 🔍 Enhanced Image Zoom Preview
+Enable “Enhanced ComfyUI image zoom preview” in Settings to intercept ComfyUI’s zoom/magnifier preview button and use a fullscreen viewer with mouse wheel zoom and drag-to-pan.
+
+![zoom](/Example%20image/zoom.png)
+
 ## ⚙️ Settings
 Click the gear icon in the top-right corner of the ComfyUI interface to access **Settings**. The following options are available:
 The following options are under the `🎨Visual Select` group:
@@ -66,6 +73,7 @@ The following options are under the `🎨Visual Select` group:
 *   **Enable Visual Selector**: Master toggle for the extension.
 *   **Listening Keywords (comma-separated)**: The floating button only appears for node properties containing these keywords (e.g., ckpt, lora). Separate with commas.
 *   **Exclude Keywords (comma-separated)**: Force native dropdowns for node properties containing these keywords. Defaults to `model_type`.
+*   **Enhanced ComfyUI image zoom preview**: Intercept ComfyUI’s zoom/magnifier preview and replace it with a fullscreen viewer that supports wheel-zoom and drag-to-pan.
 *   **Language**: Switch interface language (中文 / English).
 
 > **Tip**: All settings are auto-saved in `config.json` in the extension directory and persist across sessions.

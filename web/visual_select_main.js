@@ -20,6 +20,7 @@ window._vs_config = {
     intercept_excludes: "model_type",
     language: "zh-CN",
     nsfw_blur: true,
+    replace_zoom_preview: false,
 };
 
 // I18n strings
@@ -99,15 +100,268 @@ fetch("/visual_select/config")
                 app.extensionManager.settings.set("VisualSelect.Settings.InterceptTypes", cfg.intercept_types);
                 app.extensionManager.settings.set("VisualSelect.Settings.InterceptExcludes", cfg.intercept_excludes);
                 app.extensionManager.settings.set("VisualSelect.Settings.Language", cfg.language);
+                app.extensionManager.settings.set("VisualSelect.Settings.ReplaceZoomPreview", cfg.replace_zoom_preview);
             } else if (app.ui && app.ui.settings) {
                 app.ui.settings.setSettingValue("VisualSelect.Settings.Enabled", cfg.enabled);
                 app.ui.settings.setSettingValue("VisualSelect.Settings.InterceptTypes", cfg.intercept_types);
                 app.ui.settings.setSettingValue("VisualSelect.Settings.InterceptExcludes", cfg.intercept_excludes);
                 app.ui.settings.setSettingValue("VisualSelect.Settings.Language", cfg.language);
+                app.ui.settings.setSettingValue("VisualSelect.Settings.ReplaceZoomPreview", cfg.replace_zoom_preview);
             }
         } catch(e) {}
     })
     .catch(e => console.error("[Visual_Select] Error loading backend config", e));
+
+function _vsIsElementVisible(el) {
+    if (!el || !(el instanceof Element)) return false;
+    const style = window.getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 5 && rect.height > 5;
+}
+
+function _vsFindLargestMediaWithin(rootEl) {
+    if (!rootEl) return null;
+    const media = Array.from(rootEl.querySelectorAll("img, video"));
+    let best = null;
+    let bestArea = 0;
+    for (const el of media) {
+        if (!_vsIsElementVisible(el)) continue;
+        const src = (el.currentSrc || el.src || "").trim();
+        if (!src) continue;
+        const rect = el.getBoundingClientRect();
+        const area = rect.width * rect.height;
+        if (area > bestArea) {
+            bestArea = area;
+            best = el;
+        }
+    }
+    return best;
+}
+
+function _vsFindMediaFromZoomButton(btn) {
+    const btnRect = btn.getBoundingClientRect();
+    const btnCx = btnRect.left + btnRect.width / 2;
+    const btnCy = btnRect.top + btnRect.height / 2;
+    let cur = btn;
+    for (let i = 0; i < 5 && cur; i++) {
+        if (cur === document.body || cur === document.documentElement) break;
+        const candidate = _vsFindLargestMediaWithin(cur);
+        if (candidate) {
+            const r = candidate.getBoundingClientRect();
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            const dist = Math.hypot(cx - btnCx, cy - btnCy);
+            if (dist <= 420) return candidate;
+        }
+        cur = cur.parentElement;
+    }
+    return null;
+}
+
+function _vsEnsureZoomViewer() {
+    if (window.__vsZoomViewer) return window.__vsZoomViewer;
+
+    const overlay = document.createElement("div");
+    overlay.className = "vs-imgviewer-overlay";
+    overlay.innerHTML = `
+        <div class="vs-imgviewer-close" role="button" tabindex="0">&times;</div>
+        <div class="vs-imgviewer-stage">
+            <img class="vs-imgviewer-media" draggable="false" />
+            <video class="vs-imgviewer-media" controls autoplay loop draggable="false"></video>
+        </div>
+    `;
+
+    const imgEl = overlay.querySelector("img.vs-imgviewer-media");
+    const vidEl = overlay.querySelector("video.vs-imgviewer-media");
+    const stageEl = overlay.querySelector(".vs-imgviewer-stage");
+    const closeEl = overlay.querySelector(".vs-imgviewer-close");
+
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isDragging = false;
+    let activePointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let rafPending = false;
+
+    function activeMediaEl() {
+        return imgEl.style.display === "block" ? imgEl : vidEl;
+    }
+
+    function updateTransform() {
+        const m = activeMediaEl();
+        m.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`;
+    }
+
+    function scheduleTransform() {
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(() => {
+            rafPending = false;
+            updateTransform();
+        });
+    }
+
+    function resetTransform() {
+        scale = 1;
+        translateX = 0;
+        translateY = 0;
+        updateTransform();
+    }
+
+    function close() {
+        overlay.remove();
+        imgEl.src = "";
+        vidEl.pause();
+        vidEl.src = "";
+        document.removeEventListener("keydown", onKeyDown, true);
+    }
+
+    function onKeyDown(e) {
+        if (e.key === "Escape") {
+            e.preventDefault();
+            close();
+        }
+    }
+
+    function startDrag(e) {
+        if (activePointerId !== null && activePointerId !== e.pointerId) return;
+        isDragging = true;
+        activePointerId = e.pointerId;
+        try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+        activeMediaEl().style.cursor = "grabbing";
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function doDrag(e) {
+        if (!isDragging || activePointerId === null || e.pointerId !== activePointerId) return;
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        scheduleTransform();
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function stopDrag(e) {
+        if (!isDragging) return;
+        if (activePointerId !== null && e && e.pointerId !== activePointerId) return;
+        isDragging = false;
+        activePointerId = null;
+        activeMediaEl().style.cursor = "grab";
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }
+
+    overlay.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const nextScale = Math.min(Math.max(0.1, scale + delta), 10);
+        scale = nextScale;
+        scheduleTransform();
+    }, { passive: false });
+
+    imgEl.addEventListener("pointerdown", startDrag);
+    vidEl.addEventListener("pointerdown", startDrag);
+    imgEl.addEventListener("pointermove", doDrag);
+    vidEl.addEventListener("pointermove", doDrag);
+    imgEl.addEventListener("pointerup", stopDrag);
+    vidEl.addEventListener("pointerup", stopDrag);
+    imgEl.addEventListener("pointercancel", stopDrag);
+    vidEl.addEventListener("pointercancel", stopDrag);
+    imgEl.ondragstart = (e) => e.preventDefault();
+    vidEl.ondragstart = (e) => e.preventDefault();
+
+    closeEl.addEventListener("click", (e) => { e.preventDefault(); close(); });
+    overlay.addEventListener("click", (e) => {
+        if (e.target === overlay || e.target === stageEl) {
+            e.preventDefault();
+            close();
+        }
+    });
+
+    function open({ src, kind }) {
+        document.body.appendChild(overlay);
+        document.addEventListener("keydown", onKeyDown, true);
+
+        resetTransform();
+        if (kind === "video") {
+            vidEl.src = src;
+            vidEl.style.display = "block";
+            imgEl.style.display = "none";
+            imgEl.src = "";
+        } else {
+            imgEl.src = src;
+            imgEl.style.display = "block";
+            vidEl.style.display = "none";
+            vidEl.pause();
+            vidEl.src = "";
+        }
+        activeMediaEl().style.cursor = "grab";
+    }
+
+    window.__vsZoomViewer = { open, close };
+    return window.__vsZoomViewer;
+}
+
+function _vsInstallZoomPreviewInterceptor() {
+    if (window.__vsZoomPreviewInterceptorInstalled) return;
+    window.__vsZoomPreviewInterceptorInstalled = true;
+    console.log("[Visual_Select][ZoomPreview] interceptor installed");
+
+    document.addEventListener("click", (e) => {
+        if (!window._vs_config?.replace_zoom_preview) return;
+
+        const targetEl = e.target instanceof Element ? e.target : null;
+        let btn = targetEl?.closest?.('button[aria-label="Zoom in"],button[aria-label="Zoom"],button[aria-label="Preview"]') || null;
+        if (!btn) {
+            const zoomIconEl = targetEl?.closest?.('i[class*="lucide--zoom-in"],i[class*="lucide--zoom"]') || null;
+            btn = zoomIconEl?.closest?.("button") || null;
+        }
+        if (!btn) return;
+
+        const ariaLabel = btn.getAttribute("aria-label") || "";
+        const hasZoomIcon = !!btn.querySelector?.('i[class*="lucide--zoom-in"],i[class*="lucide--zoom"]');
+        if (!hasZoomIcon && ariaLabel.toLowerCase() !== "zoom in") {
+            console.debug("[Visual_Select][ZoomPreview] matched button but not zoom icon/label", { ariaLabel });
+            return;
+        }
+
+        console.debug("[Visual_Select][ZoomPreview] click intercepted", { ariaLabel });
+
+        const media = _vsFindMediaFromZoomButton(btn);
+        if (!media) {
+            const ancestors = [];
+            let cur = btn;
+            for (let i = 0; i < 8 && cur; i++) {
+                ancestors.push(cur.tagName.toLowerCase() + (cur.className ? "." + String(cur.className).split(/\s+/).filter(Boolean).slice(0, 3).join(".") : ""));
+                cur = cur.parentElement;
+            }
+            console.debug("[Visual_Select][ZoomPreview] no media found near button", { ariaLabel, ancestors });
+            return;
+        }
+
+        const src = (media.currentSrc || media.src || "").trim();
+        if (!src) {
+            console.debug("[Visual_Select][ZoomPreview] media found but empty src", { tag: media.tagName.toLowerCase() });
+            return;
+        }
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const kind = media.tagName.toLowerCase() === "video" ? "video" : "image";
+        console.debug("[Visual_Select][ZoomPreview] opening viewer", { kind, src });
+        _vsEnsureZoomViewer().open({ src, kind });
+    }, true);
+}
 
 function isModelWidget(widget) {
     if (!widget || widget.type !== "combo") return false;
@@ -1163,9 +1417,27 @@ app.registerExtension({
                 }).catch(e => console.error(e));
             }
         }
+        ,
+        {
+            id: "VisualSelect.Settings.ReplaceZoomPreview",
+            name: "增强 ComfyUI 图片放大预览",
+            category: ["🎨Visual Select", "界面", "图片预览增强"],
+            type: "boolean",
+            defaultValue: false,
+            tooltip: "拦截 ComfyUI 的放大镜预览按钮，增强支持滚轮缩放和拖拽移动的全屏预览",
+            onChange: (val) => {
+                window._vs_config.replace_zoom_preview = val;
+                fetch("/visual_select/config", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({replace_zoom_preview: val})
+                }).catch(e => console.error(e));
+            }
+        }
     ],
     async setup() {
         console.log("🚀 [Visual_Select] Main Extension setup executed!");
+        _vsInstallZoomPreviewInterceptor();
 
         // Intercept LiteGraph ContextMenu for Combo Widgets (V1 Canvas)
         if (window.LiteGraph && window.LiteGraph.ContextMenu) {

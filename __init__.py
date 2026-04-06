@@ -55,7 +55,8 @@ DEFAULT_CONFIG = {
     "intercept_types": "ckpt,model,lora,vae,unet,controlnet,checkpoint",
     "intercept_excludes": "model_type",
     "language": "zh-CN",
-    "nsfw_blur": True
+    "nsfw_blur": True,
+    "replace_zoom_preview": False
 }
 
 try:
@@ -219,6 +220,8 @@ if hasattr(server.PromptServer, "instance"):
                 config["language"] = data["language"]
             if "nsfw_blur" in data:
                 config["nsfw_blur"] = bool(data["nsfw_blur"])
+            if "replace_zoom_preview" in data:
+                config["replace_zoom_preview"] = bool(data["replace_zoom_preview"])
             save_config(config)
             return web.json_response({"status": "success"})
         except Exception as e:
