@@ -56,7 +56,7 @@ DEFAULT_CONFIG = {
     "intercept_excludes": "model_type",
     "language": "zh-CN",
     "nsfw_blur": True,
-    "replace_zoom_preview": False
+    "replace_zoom_preview": True
 }
 
 try:
