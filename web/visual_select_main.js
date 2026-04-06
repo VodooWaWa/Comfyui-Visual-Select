@@ -20,7 +20,7 @@ window._vs_config = {
     intercept_excludes: "model_type",
     language: "zh-CN",
     nsfw_blur: true,
-    replace_zoom_preview: false,
+    replace_zoom_preview: true,
 };
 
 // I18n strings
@@ -1423,7 +1423,7 @@ app.registerExtension({
             name: "增强 ComfyUI 图片放大预览",
             category: ["🎨Visual Select", "界面", "图片预览增强"],
             type: "boolean",
-            defaultValue: false,
+            defaultValue: true,
             tooltip: "拦截 ComfyUI 的放大镜预览按钮，增强支持滚轮缩放和拖拽移动的全屏预览",
             onChange: (val) => {
                 window._vs_config.replace_zoom_preview = val;
